@@ -29,9 +29,8 @@ def server_handler(server, path):
     while True:
         message = yield from server.recv()
         if message is None:
+            print('NO DATA FROM CLIENT')
             break
-        elif message == 'START':
-            print(message)
         elif message == 'STOP':
             print(message)
             translate_socket.send(bytearray(160000))
@@ -39,7 +38,7 @@ def server_handler(server, path):
                 print('waiting for translation response')
                 translation = yield from translate_socket.recv()
                 if translation is None:
-                    print('No response')
+                    print('NO RESPONSE.')
                     if not translate_socket.open:
                         print('translate_socket closed')
                         #translate_socket_init()
@@ -47,7 +46,11 @@ def server_handler(server, path):
                 print(translation)
         else:
             print(type(message))
-            translate_socket.send(message)
+            if type(message) is str:
+                print(message)
+            elif type(message) is bytes:
+                print('RECEIVED DATA FROM CLIENT')
+                translate_socket.send(message)
 
 @asyncio.coroutine
 def translate_socket_init():

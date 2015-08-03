@@ -1,5 +1,4 @@
-
-function exportWAV(numChannels, recBuffers, recLength, sampleRate){
+function exportWAV(numChannels, recBuffers, recLength, sampleRate, socket){
   var buffers = [];
   for (var channel = 0; channel < numChannels; channel++){
     buffers.push(mergeBuffers(recBuffers[channel], recLength));
@@ -11,8 +10,11 @@ function exportWAV(numChannels, recBuffers, recLength, sampleRate){
   }
   var dataview = encodeWAV(interleaved, numChannels, sampleRate);
   var audioBlob = new Blob([dataview], { type: "audio/wav" });
-
-  downloadWavFile(audioBlob, "sample.wav");
+  console.log(audioBlob);
+  socket.send('START');
+  socket.send(audioBlob);
+  socket.send('STOP');
+  //downloadWavFile(audioBlob, "sample.wav");
 }
 
 function downloadWavFile(blob, filename) {
