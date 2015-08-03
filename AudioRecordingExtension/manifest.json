@@ -1,0 +1,23 @@
+{
+    "manifest_version": 2,
+
+    "name": "Audio Recorder",
+    "version": "1",
+
+    "permissions": [
+        "contextMenus", "tabs", "storage", "<all_urls>", "activeTab", "tabCapture"
+    ],
+
+    "browser_action": {
+        "default_title": "Record Audio"
+    },
+
+    "background": {
+        "scripts": ["lib/recorder.js", "background.js"],
+        "persistent": false
+    },
+
+    "web_accessible_resources": [
+
+    ]
+}
