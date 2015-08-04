@@ -1,11 +1,43 @@
-import asyncio
-import websockets
+import threading
 import requests
 import json
 import uuid
+import time
+from ws4py.client.threadedclient import WebSocketClient
+from wsgiref.simple_server import make_server
+from ws4py.websocket import WebSocket
+from ws4py.server.wsgirefserver import WSGIServer, WebSocketWSGIRequestHandler
+from ws4py.server.wsgiutils import WebSocketWSGIApplication
 
 auth_token = None
 translate_socket = None
+server = None
+
+def send_sample(socket):
+    f = open('bushw_certain.wav', 'rb')
+    while True:
+        print('READ')
+        piece = f.read(1700) #bushw_certain.wav
+        if not piece:
+            break
+        socket.send(piece)
+        time.sleep(0.15)
+    socket.send(bytearray(160000))
+
+class TranslateSocket(WebSocketClient):
+    def opened(self):
+        print 'TRANSLATE SOCKET OPENED'
+
+    def closed(self, code, reason=None):
+        print 'TRANSLATE SOCKET CLOSED', code, reason
+
+    def received_message(self, message):
+        print 'RECEIVED MESSAGE FROM TRANSLATOR'
+        if message.is_binary:
+            print 'GOT TRANSLATED AUDIO'
+        elif message.is_text:
+            print 'GOT TRANSLATED TEXT'
+            print message
 
 def get_auth_token():
     global auth_token
@@ -24,36 +56,8 @@ def get_auth_token():
 
     return auth_token
 
-@asyncio.coroutine
-def server_handler(server, path):
-    while True:
-        message = yield from server.recv()
-        if message is None:
-            print('NO DATA FROM CLIENT')
-            break
-        elif message == 'STOP':
-            print(message)
-            translate_socket.send(bytearray(160000))
-            while True:
-                print('waiting for translation response')
-                translation = yield from translate_socket.recv()
-                if translation is None:
-                    print('NO RESPONSE.')
-                    if not translate_socket.open:
-                        print('translate_socket closed')
-                        #translate_socket_init()
-                    break
-                print(translation)
-        else:
-            print(type(message))
-            if type(message) is str:
-                print(message)
-            elif type(message) is bytes:
-                print('RECEIVED DATA FROM CLIENT')
-                translate_socket.send(message)
-
-@asyncio.coroutine
 def translate_socket_init():
+    print 'STARTING TRANSLATE SOCKET'
     ws_url = 'wss://dev.microsofttranslator.com/api/speech'
     params = {
         'from':'en-US',
@@ -63,13 +67,42 @@ def translate_socket_init():
     }
     paramsString = '?from=%s&to=%s&features=%s&voice=%s' % (params['from'], params['to'], params['features'], params['voice'])
     ws_url += paramsString
-    headers = {'X-ClientAppId': str(uuid.uuid4()), 'Authorization': 'Bearer '+get_auth_token(), 'X-CorrelationId': str(uuid.uuid4())}
+    headers = [('X-ClientAppId', str(uuid.uuid4())), ('Authorization', 'Bearer '+get_auth_token()), ('X-CorrelationId', str(uuid.uuid4()))]
     print(headers)
     global translate_socket
-    translate_socket = yield from websockets.connect(ws_url, extra_headers=headers)
+    translate_socket = TranslateSocket(ws_url, headers=headers)
+    translate_socket.connect()
+    translate_socket.run_forever()
 
+class ServerSocket(WebSocket):
+    def opened(self):
+        print 'SERVER SOCKET OPENED'
+
+    def closed(self, code, reason=None):
+        print 'SERVER SOCKET CLOSED', code, reason
+
+    def received_message(self, message):
+        print 'RECEIVED MESSAGE FROM CLIENT'
+        if message.is_binary:
+            translate_socket.send(message, binary=True)
+        elif message.is_text:
+            print message
+
+def server_init():
+    print 'STARTING SERVER SOCKET'
+    global server
+    server = make_server('', 9999, server_class=WSGIServer,
+                     handler_class=WebSocketWSGIRequestHandler,
+                     app=WebSocketWSGIApplication(handler_cls=ServerSocket))
+    server.initialize_websockets_manager()
+    server.serve_forever()
+    
 if __name__ == '__main__':
-    asyncio.get_event_loop().run_until_complete(translate_socket_init())
-    start_server = websockets.serve(server_handler, 'localhost', 9999)
-    asyncio.get_event_loop().run_until_complete(start_server)
-    asyncio.get_event_loop().run_forever()
+    translator_thread = threading.Thread(target=translate_socket_init)
+    translator_thread.daemon = True
+    server_thread = threading.Thread(target=server_init)
+    server_thread.daemon = True
+    translator_thread.start()
+    server_thread.start()
+    while True:
+        time.sleep(1)

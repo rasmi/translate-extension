@@ -2,9 +2,9 @@
 
 ## Develop
 
-First, install Python >= 3.4 to run the backend server. Virtualenv is not necessary but is nice to create a separate Python environment for installing just the modules needed for the server.
+The server is developed for Python 2.7. Virtualenv is not necessary but is nice to create a separate Python environment for installing just the modules needed for the server.
 ```
-virtualenv -p /usr/bin/python3.4 serverenv
+virtualenv serverenv
 source serverenv/bin/activate
 ```
 
