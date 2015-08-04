@@ -13,17 +13,6 @@ auth_token = None
 translate_socket = None
 server = None
 
-def send_sample(socket):
-    f = open('bushw_certain.wav', 'rb')
-    while True:
-        print('READ')
-        piece = f.read(1700) #bushw_certain.wav
-        if not piece:
-            break
-        socket.send(piece)
-        time.sleep(0.15)
-    socket.send(bytearray(160000))
-
 class TranslateSocket(WebSocketClient):
     def opened(self):
         print 'TRANSLATE SOCKET OPENED'
