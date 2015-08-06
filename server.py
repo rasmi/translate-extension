@@ -11,7 +11,7 @@ from ws4py.server.wsgiutils import WebSocketWSGIApplication
 
 auth_token = None
 translate_socket = None
-server = None
+server_socket = None
 
 class TranslateSocket(WebSocketClient):
     def opened(self):
@@ -27,6 +27,7 @@ class TranslateSocket(WebSocketClient):
         elif message.is_text:
             print 'GOT TRANSLATED TEXT'
             print message
+        server_socket.send(message, binary=message.is_binary)
 
 def get_auth_token():
     global auth_token
@@ -65,6 +66,8 @@ def translate_socket_init():
 
 class ServerSocket(WebSocket):
     def opened(self):
+        global server_socket
+        server_socket = self
         print 'SERVER SOCKET OPENED'
 
     def closed(self, code, reason=None):
@@ -79,7 +82,6 @@ class ServerSocket(WebSocket):
 
 def server_init():
     print 'STARTING SERVER SOCKET'
-    global server
     server = make_server('', 9999, server_class=WSGIServer,
                      handler_class=WebSocketWSGIRequestHandler,
                      app=WebSocketWSGIApplication(handler_cls=ServerSocket))
