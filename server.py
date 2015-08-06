@@ -57,7 +57,7 @@ def translate_socket_init():
     params = {
         'from':'en-US',
         'to': 'it-IT',
-        'features': 'texttospeech',
+        'features': 'texttospeech,partial',
         'voice':'it-IT-Elsa'
     }
     paramsString = '?from=%s&to=%s&features=%s&voice=%s' % (params['from'], params['to'], params['features'], params['voice'])
