@@ -10,6 +10,7 @@ from ws4py.server.wsgirefserver import WSGIServer, WebSocketWSGIRequestHandler
 from ws4py.server.wsgiutils import WebSocketWSGIApplication
 
 auth_token = None
+auth_expiration = 1e11
 translate_socket = None
 server_socket = None
 
@@ -31,7 +32,8 @@ class TranslateSocket(WebSocketClient):
 
 def get_auth_token():
     global auth_token
-    if not auth_token:
+    global auth_expiration
+    if not auth_token or auth_expiration > int(time.time()):
         client_id = 'civic-translator-test'
         client_secret = 'civic-translator-test-secret'
         ADMurl = 'https://datamarket.accesscontrol.windows.net/v2/OAuth2-13'
@@ -42,7 +44,10 @@ def get_auth_token():
             'grant_type': 'client_credentials'
         }
         authrequest = requests.post(ADMurl, data=postData)
-        auth_token = json.loads(authrequest.text)['access_token']
+        response = json.loads(authrequest.text)
+        print response
+        auth_expiration = int(time.time()) + int(response['expires_in'])
+        auth_token = response['access_token']
 
     return auth_token
 
@@ -58,7 +63,7 @@ def translate_socket_init():
     paramsString = '?from=%s&to=%s&features=%s&voice=%s' % (params['from'], params['to'], params['features'], params['voice'])
     ws_url += paramsString
     headers = [('X-ClientAppId', str(uuid.uuid4())), ('Authorization', 'Bearer '+get_auth_token()), ('X-CorrelationId', str(uuid.uuid4()))]
-    print(headers)
+
     global translate_socket
     translate_socket = TranslateSocket(ws_url, headers=headers)
     translate_socket.connect()
