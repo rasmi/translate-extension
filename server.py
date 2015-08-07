@@ -13,6 +13,12 @@ auth_token = None
 auth_expiration = 1e11
 translate_socket = None
 server_socket = None
+params = {
+    'from':'en-US',
+    'to': 'es-ES',
+    'features': 'texttospeech,partial',
+    'voice':'es-ES-Laura'
+}
 
 class TranslateSocket(WebSocketClient):
     def opened(self):
@@ -54,13 +60,9 @@ def get_auth_token():
 def translate_socket_init():
     print 'STARTING TRANSLATE SOCKET'
     ws_url = 'wss://dev.microsofttranslator.com/api/speech'
-    params = {
-        'from':'en-US',
-        'to': 'it-IT',
-        'features': 'texttospeech,partial',
-        'voice':'it-IT-Elsa'
-    }
+    global params
     paramsString = '?from=%s&to=%s&features=%s&voice=%s' % (params['from'], params['to'], params['features'], params['voice'])
+    print paramsString
     ws_url += paramsString
     headers = [('X-ClientAppId', str(uuid.uuid4())), ('Authorization', 'Bearer '+get_auth_token()), ('X-CorrelationId', str(uuid.uuid4()))]
 
@@ -81,9 +83,18 @@ class ServerSocket(WebSocket):
     def received_message(self, message):
         print 'RECEIVED MESSAGE FROM CLIENT'
         if message.is_binary:
-            translate_socket.send(message, binary=True)
+            if translate_socket:
+                translate_socket.send(message, binary=True)
         elif message.is_text:
-            print message
+            # Set langauge.
+            settings = message.data.decode('utf-8').split(' ')
+            global params
+            params['from'] = settings[0]
+            params['to'] = settings[1]
+            params['voice'] = settings[2]
+            translator_thread = threading.Thread(target=translate_socket_init)
+            translator_thread.daemon = True
+            translator_thread.start()
 
 def server_init():
     print 'STARTING SERVER SOCKET'
@@ -94,11 +105,8 @@ def server_init():
     server.serve_forever()
     
 if __name__ == '__main__':
-    translator_thread = threading.Thread(target=translate_socket_init)
-    translator_thread.daemon = True
     server_thread = threading.Thread(target=server_init)
     server_thread.daemon = True
-    translator_thread.start()
     server_thread.start()
     while True:
         time.sleep(1)
